@@ -111,9 +111,9 @@ RSpec.describe Traject::SolrPool::SolrJsonWriter, :solr_stub do
     it 'leaves the pool warm after close' do
       stub_solr_update('http://solr.test:8983/solr/core/update/json')
       w = writer('solr_writer.thread_pool' => 0)
-      origin = w.connection.origin
+      w.put(context('id' => '1'))
       w.close
-      expect(HttpConnectionPool::Registry.instance.stats.map { |s| s[:origin] }).to include(origin)
+      expect(HttpConnectionPool::Registry.instance.stats.map { |s| s[:origin] }).to include(w.connection.origin)
     end
 
     it 'commits on close when configured' do
