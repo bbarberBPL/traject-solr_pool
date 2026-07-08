@@ -2,6 +2,8 @@
 
 require 'json'
 require 'uri'
+require 'base64'
+require 'http'
 require 'concurrent/atomic/atomic_fixnum'
 require 'traject/util'
 require 'traject/thread_pool'
@@ -19,13 +21,29 @@ module Traject
       DEFAULT_MAX_SKIPPED = 0
       DEFAULT_BATCH_SIZE  = 100
 
+      class MaxSkippedRecordsExceeded < RuntimeError; end
+
       # Raised when Solr returns a non-2xx response; carries the raw response.
+      # Its #response is an http.rb HTTP::Response (use #code / #to_s), not an
+      # HTTPClient message.
       class BadHttpResponse < RuntimeError
         attr_reader :response
 
-        def initialize(msg, response)
+        def initialize(msg, response = nil)
+          solr_error = find_solr_error(response)
+          msg = "#{msg}: #{solr_error}" if solr_error
           super(msg)
           @response = response
+        end
+
+        private
+
+        def find_solr_error(response)
+          return nil unless response&.to_s && response.headers['Content-Type'].to_s.start_with?('application/json')
+
+          JSON.parse(response.to_s).dig('error', 'msg')
+        rescue JSON::ParserError
+          nil
         end
       end
 
@@ -47,7 +65,94 @@ module Traject
         settings['logger'] ||= Yell.new($stderr, level: 'gt.fatal')
       end
 
+      def put(context)
+        @thread_pool.raise_collected_exception!
+        @batched_queue << context
+        return if @batched_queue.size < @batch_size
+
+        batch = Traject::Util.drain_queue(@batched_queue)
+        @thread_pool.maybe_in_thread_pool(batch) { |b| send_batch(b) }
+      end
+
+      def flush
+        send_batch(Traject::Util.drain_queue(@batched_queue))
+      end
+
+      def send_batch(batch)
+        return if batch.empty?
+
+        json_package = JSON.generate(batch.map(&:output_hash))
+        begin
+          resp = connection.post(request_path, body: json_package)
+        rescue StandardError => e
+          exception = e
+        end
+
+        return if exception.nil? && resp.status == 200
+
+        log_batch_failure(exception, resp)
+        batch.each { |c| send_single(c) }
+      end
+
+      def send_single(context)
+        json_package = JSON.generate([context.output_hash])
+        resp = connection.post(request_path, body: json_package)
+        unless resp.status == 200
+          raise BadHttpResponse.new("Unexpected HTTP response status #{resp.code} from POST", resp)
+        end
+      rescue *skippable_exceptions => e
+        handle_skipped(context, e)
+      end
+
+      def skipped_record_count
+        @skipped_record_incrementer.value
+      end
+
       private
+
+      # Relative path (plus any query) so requests resolve against the pool
+      # origin rather than re-encoding the absolute URL.
+      def request_path
+        uri = URI.parse(@solr_update_url)
+        uri.query ? "#{uri.path}?#{uri.query}" : uri.path
+      end
+
+      def log_batch_failure(exception, resp)
+        message = if exception
+                    Traject::Util.exception_to_log_message(exception)
+                  else
+                    "Solr response: #{resp.code}: #{resp}"
+                  end
+        logger.error('Error in Solr batch add. Will retry documents individually ' \
+                     "at performance penalty: #{message}")
+      end
+
+      def handle_skipped(context, exception)
+        logger.error("Could not add record #{context.record_inspect}: #{skip_message(exception)}")
+        @skipped_record_incrementer.increment
+        return unless @max_skipped && skipped_record_count > @max_skipped
+
+        raise MaxSkippedRecordsExceeded,
+              "#{self.class.name}: Exceeded maximum number of skipped records " \
+              "(#{@max_skipped}): aborting: #{exception.message}"
+      end
+
+      def skip_message(exception)
+        return Traject::Util.exception_to_log_message(exception) unless exception.is_a?(BadHttpResponse)
+
+        "Solr error response: #{exception.response.code}: #{exception.response}"
+      end
+
+      def skippable_exceptions
+        @skippable_exceptions ||= settings['solr_writer.skippable_exceptions'] || [
+          HTTP::TimeoutError,
+          HttpConnectionPool::TimeoutError,
+          HTTP::ConnectionError,
+          SocketError,
+          Errno::ECONNREFUSED,
+          BadHttpResponse
+        ]
+      end
 
       def configure_from_settings
         configure_skipped
@@ -103,7 +208,6 @@ module Traject
       def basic_auth_header(user, password)
         return nil unless user || password
 
-        require 'base64'
         "Basic #{Base64.strict_encode64("#{user}:#{password}")}"
       end
 

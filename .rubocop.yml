@@ -12,3 +12,11 @@ Style/StringLiterals:
 
 Style/StringLiteralsInInterpolation:
   EnforcedStyle: single_quotes
+
+# SolrJsonWriter is a large facade mirroring traject's stock writer (settings
+# vocabulary, URL derivation, and the full put/flush/send_batch/send_single/
+# close/commit/delete output path). It is cohesive, not a god-object; the line
+# count is inherent to the surface it replaces.
+Metrics/ClassLength:
+  Exclude:
+    - 'lib/traject/solr_pool/solr_json_writer.rb'
