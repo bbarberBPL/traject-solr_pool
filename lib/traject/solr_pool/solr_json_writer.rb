@@ -108,13 +108,61 @@ module Traject
         @skipped_record_incrementer.value
       end
 
+      def close
+        @thread_pool.raise_collected_exception!
+
+        batch = Traject::Util.drain_queue(@batched_queue)
+        @thread_pool.maybe_in_thread_pool { send_batch(batch) } unless batch.empty?
+
+        shutdown_thread_pool if @thread_pool_size&.positive?
+
+        @thread_pool.raise_collected_exception!
+        commit if @commit_on_close
+        # Pool is intentionally left warm in the registry for reuse by later
+        # writers/readers on this origin; teardown is the host app's concern.
+      end
+
+      def commit(query_params = nil)
+        query_params ||= @commit_solr_update_args || { 'commit' => 'true' }
+        logger.info("#{self.class.name} sending commit to solr at url #{@solr_update_url}...")
+
+        resp = connection.get(request_path_for(query_params))
+        raise "Could not commit to Solr: #{resp.code} #{resp}" unless resp.status == 200
+      end
+
+      def delete(id)
+        json_package = JSON.generate(delete: id)
+        resp = connection.post(request_path, body: json_package)
+        raise "Could not delete #{id.inspect}, http response #{resp.code}: #{resp}" unless resp.status == 200
+      end
+
+      def delete_all!
+        delete(query: '*:*')
+      end
+
       private
+
+      def shutdown_thread_pool
+        elapsed = @thread_pool.shutdown_and_wait
+        logger.warn("Waited #{elapsed}s for all threads") if elapsed > 60
+        return unless skipped_record_count.positive?
+
+        logger.warn("#{self.class.name}: #{skipped_record_count} skipped records")
+      end
 
       # Relative path (plus any query) so requests resolve against the pool
       # origin rather than re-encoding the absolute URL.
       def request_path
         uri = URI.parse(@solr_update_url)
         uri.query ? "#{uri.path}?#{uri.query}" : uri.path
+      end
+
+      def request_path_for(query_params)
+        base = request_path
+        return base unless query_params
+
+        separator = base.include?('?') ? '&' : '?'
+        "#{base}#{separator}#{URI.encode_www_form(query_params)}"
       end
 
       def log_batch_failure(exception, resp)

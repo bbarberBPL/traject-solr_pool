@@ -98,4 +98,44 @@ RSpec.describe Traject::SolrPool::SolrJsonWriter, :solr_stub do
       expect(w.skipped_record_count).to eq(1)
     end
   end
+
+  describe 'close' do
+    it 'flushes queued records on close' do
+      stub = stub_solr_update('http://solr.test:8983/solr/core/update/json')
+      w = writer('solr_writer.batch_size' => 100, 'solr_writer.thread_pool' => 0)
+      w.put(context('id' => '1'))
+      w.close
+      expect(stub).to have_been_requested
+    end
+
+    it 'leaves the pool warm after close' do
+      stub_solr_update('http://solr.test:8983/solr/core/update/json')
+      w = writer('solr_writer.thread_pool' => 0)
+      origin = w.connection.origin
+      w.close
+      expect(HttpConnectionPool::Registry.instance.stats.map { |s| s[:origin] }).to include(origin)
+    end
+
+    it 'commits on close when configured' do
+      stub_solr_update('http://solr.test:8983/solr/core/update/json')
+      commit = stub_solr_get('http://solr.test:8983/solr/core/update/json?commit=true')
+      w = writer('solr_writer.thread_pool' => 0, 'solr_writer.commit_on_close' => 'true')
+      w.close
+      expect(commit).to have_been_requested
+    end
+  end
+
+  describe 'delete' do
+    it 'posts a delete-by-id document' do
+      stub = stub_solr_update('http://solr.test:8983/solr/core/update/json')
+             .with { |req| JSON.parse(req.body) == { 'delete' => 'abc' } }
+      writer('solr_writer.thread_pool' => 0).delete('abc')
+      expect(stub).to have_been_requested
+    end
+
+    it 'raises on a non-200 delete' do
+      stub_solr_update('http://solr.test:8983/solr/core/update/json', status: 500)
+      expect { writer('solr_writer.thread_pool' => 0).delete('abc') }.to raise_error(RuntimeError)
+    end
+  end
 end

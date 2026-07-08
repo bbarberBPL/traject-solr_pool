@@ -28,6 +28,7 @@ module Traject
                                     auth: opts[:auth],
                                     timeout: opts[:timeout]).to_pool_opts
         @adapter      = build_adapter
+        pool # register the pool with the registry now so it is warm for reuse
       end
 
       def post(path, body:)
