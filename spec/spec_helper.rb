@@ -14,6 +14,7 @@ RSpec.configure do |config|
   end
 
   config.include WebmockHelpers, :solr_stub
+  config.include ThreadSafetyHelpers, :thread_safety
 
   # Every example starts with a clean global pool registry so pools never leak
   # between examples (locally-built pools must be closed by their own example).
