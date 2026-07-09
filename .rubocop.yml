@@ -12,3 +12,28 @@ Style/StringLiterals:
 
 Style/StringLiteralsInInterpolation:
   EnforcedStyle: single_quotes
+
+# Integration specs describe cross-cutting behaviour (a string subject), not a
+# single class, so the class-subject rule does not apply to them.
+RSpec/DescribeClass:
+  Exclude:
+    - 'spec/integration/**/*'
+
+# Integration specs assert several facts about one end-to-end interaction (e.g.
+# a marker appears AND a request fired), so the one-expectation-per-example and
+# short-example rules do not fit them. Unit specs still enforce both.
+RSpec/MultipleExpectations:
+  Exclude:
+    - 'spec/integration/**/*'
+
+RSpec/ExampleLength:
+  Exclude:
+    - 'spec/integration/**/*'
+
+# SolrJsonWriter is a large facade mirroring traject's stock writer (settings
+# vocabulary, URL derivation, and the full put/flush/send_batch/send_single/
+# close/commit/delete output path). It is cohesive, not a god-object; the line
+# count is inherent to the surface it replaces.
+Metrics/ClassLength:
+  Exclude:
+    - 'lib/traject/solr_pool/solr_json_writer.rb'

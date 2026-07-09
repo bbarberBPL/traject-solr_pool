@@ -1,8 +1,11 @@
 # frozen_string_literal: true
 
 require 'traject'
+require 'http_connection_pool'
 
-require_relative "solr_pool/version"
+require_relative 'solr_pool/version'
+require_relative 'solr_pool/connection'
+require_relative 'solr_pool/solr_json_writer'
 
 module Traject
   module SolrPool
