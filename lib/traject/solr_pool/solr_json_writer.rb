@@ -126,7 +126,7 @@ module Traject
         query_params ||= @commit_solr_update_args || { 'commit' => 'true' }
         logger.info("#{self.class.name} sending commit to solr at url #{@solr_update_url}...")
 
-        resp = connection.get(request_path_for(query_params))
+        resp = connection.get(request_path_for(query_params), timeout: @commit_timeout)
         raise "Could not commit to Solr: #{resp.code} #{resp}" unless resp.status == 200
       end
 
@@ -237,6 +237,7 @@ module Traject
                             @settings['solrj_writer.commit_on_close']).to_s == 'true'
         @solr_update_args = @settings['solr_writer.solr_update_args']
         @commit_solr_update_args = @settings['solr_writer.commit_solr_update_args']
+        @commit_timeout = (@settings['solr_writer.commit_timeout'] || 600).to_i
       end
 
       # Splits origin (scheme://host:port) from request path; auth goes to

@@ -31,4 +31,16 @@ RSpec.describe Traject::SolrPool::Connection, :solr_stub do
     b = described_class.new(origin: 'http://solr.test:8983', pool_size: 1, auth: 'Basic BBB')
     expect(a.send(:pool)).not_to be(b.send(:pool))
   end
+
+  it 'does not leak the auth credential in inspect' do
+    conn = described_class.new(origin: 'http://solr.test:8983', pool_size: 1, auth: 'Basic dXNlcjpzM2NyZXQ=')
+    expect(conn.inspect).to eq('#<Traject::SolrPool::Connection origin=http://solr.test:8983 ' \
+                               'pool_size=1 options=[headers, auth]>')
+  end
+
+  it 'does not leak the auth credential in to_s' do
+    conn = described_class.new(origin: 'http://solr.test:8983', pool_size: 1, auth: 'Basic dXNlcjpzM2NyZXQ=')
+    expect(conn.to_s).to eq('#<Traject::SolrPool::Connection origin=http://solr.test:8983 ' \
+                            'pool_size=1 options=[headers, auth]>')
+  end
 end

@@ -37,6 +37,7 @@ The writer reuses the stock `solr.*` / `solr_writer.*` vocabulary. Only
 | `solr_writer.commit_on_close` | `false` | Send a commit when the writer closes; the legacy `solrj_writer.commit_on_close` key is also honoured |
 | `solr_writer.solr_update_args` | none | Query params (e.g. `{ 'commitWithin' => 1000 }`) applied to every update and delete request |
 | `solr_writer.commit_solr_update_args` | `{ 'commit' => 'true' }` | Query params appended to the commit request |
+| `solr_writer.commit_timeout` | `600` (10 min) | Per-request read timeout applied to the commit request only, so a slow hard commit is not cut off by a short `http_timeout` |
 | `solr_writer.basic_auth_user` | embedded URI user | Basic-auth user; overrides any credentials embedded in the URL |
 | `solr_writer.basic_auth_password` | embedded URI password | Basic-auth password; overrides any credentials embedded in the URL |
 | `solr_writer.http_timeout` | none | Per-request HTTP timeout, passed through to the pooled connection |

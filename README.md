@@ -91,6 +91,7 @@ new namespaced setting.
 | `solr_writer.commit_on_close` | `false` | Send a commit when the writer closes (legacy `solrj_writer.commit_on_close` also honoured) |
 | `solr_writer.solr_update_args` | none | Query params (e.g. `{ 'commitWithin' => 1000 }`) applied to every update and delete request |
 | `solr_writer.commit_solr_update_args` | `{ 'commit' => 'true' }` | Query params for the commit request |
+| `solr_writer.commit_timeout` | `600` (10 min) | Read timeout applied to the commit request only, so a slow commit is not cut off by a short `http_timeout` |
 | `solr_writer.basic_auth_user` | embedded URI user | Basic-auth user (overrides credentials embedded in the URL) |
 | `solr_writer.basic_auth_password` | embedded URI password | Basic-auth password (overrides credentials embedded in the URL) |
 | `solr_writer.http_timeout` | none | Per-request HTTP timeout, passed to the pool connection |

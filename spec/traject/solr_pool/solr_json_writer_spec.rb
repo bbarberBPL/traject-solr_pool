@@ -133,6 +133,24 @@ RSpec.describe Traject::SolrPool::SolrJsonWriter, :solr_stub do
     end
   end
 
+  describe 'commit timeout' do
+    it 'passes the configured commit timeout through to the get' do
+      stub_solr_get('http://solr.test:8983/solr/core/update/json?commit=true')
+      w = writer('solr_writer.thread_pool' => 0, 'solr_writer.commit_timeout' => 30)
+      allow(w.connection).to receive(:get).and_call_original
+      w.commit
+      expect(w.connection).to have_received(:get).with(anything, timeout: 30)
+    end
+
+    it 'defaults the commit timeout to 600 seconds when unset' do
+      stub_solr_get('http://solr.test:8983/solr/core/update/json?commit=true')
+      w = writer('solr_writer.thread_pool' => 0)
+      allow(w.connection).to receive(:get).and_call_original
+      w.commit
+      expect(w.connection).to have_received(:get).with(anything, timeout: 600)
+    end
+  end
+
   describe 'delete' do
     it 'posts a delete-by-id document' do
       stub = stub_solr_update('http://solr.test:8983/solr/core/update/json')

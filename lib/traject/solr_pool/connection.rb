@@ -34,17 +34,27 @@ module Traject
         @adapter.with_connection { |conn| conn.post(path, body: body) }
       end
 
-      def get(path, params: {})
-        if params.empty?
-          @adapter.with_connection { |conn| conn.get(path) }
-        else
-          @adapter.with_connection { |conn| conn.get(path, params: params) }
+      def get(path, params: {}, timeout: nil)
+        @adapter.with_connection do |conn|
+          client = timeout ? conn.timeout(timeout) : conn
+          if params.empty?
+            client.get(path)
+          else
+            client.get(path, params: params)
+          end
         end
       end
 
       def release
         @adapter.release_connection_pool
       end
+
+      # Metadata only: never print header values or the auth credential.
+      def inspect
+        "#<#{self.class} origin=#{@origin} pool_size=#{@pool_size} " \
+          "options=[#{@pool_options.keys.join(', ')}]>"
+      end
+      alias to_s inspect
 
       private
 
