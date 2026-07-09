@@ -35,7 +35,7 @@ The writer reuses the stock `solr.*` / `solr_writer.*` vocabulary. Only
 | `solr_writer.max_skipped` | `0` | Skip tolerance before `MaxSkippedRecordsExceeded` is raised; a negative value disables the cap |
 | `solr_writer.skippable_exceptions` | http.rb-native list (see error handling) | Exceptions treated as skippable during per-record retry |
 | `solr_writer.commit_on_close` | `false` | Send a commit when the writer closes; the legacy `solrj_writer.commit_on_close` key is also honoured |
-| `solr_writer.solr_update_args` | none | Update query params, exposed via `solr_update_url_with_query` |
+| `solr_writer.solr_update_args` | none | Query params (e.g. `{ 'commitWithin' => 1000 }`) applied to every update and delete request |
 | `solr_writer.commit_solr_update_args` | `{ 'commit' => 'true' }` | Query params appended to the commit request |
 | `solr_writer.basic_auth_user` | embedded URI user | Basic-auth user; overrides any credentials embedded in the URL |
 | `solr_writer.basic_auth_password` | embedded URI password | Basic-auth password; overrides any credentials embedded in the URL |

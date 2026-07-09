@@ -71,6 +71,14 @@ RSpec.describe Traject::SolrPool::SolrJsonWriter, :solr_stub do
       w.put(context('id' => '1'))
       expect(stub).not_to have_been_requested
     end
+
+    it 'applies solr_update_args to the batch post query string' do
+      stub = stub_solr_update('http://solr.test:8983/solr/core/update/json?commitWithin=1000')
+      w = writer('solr_writer.solr_update_args' => { 'commitWithin' => 1000 },
+                 'solr_writer.batch_size' => 1, 'solr_writer.thread_pool' => 0)
+      w.put(context('id' => '1'))
+      expect(stub).to have_been_requested
+    end
   end
 
   describe 'error handling' do
@@ -130,6 +138,14 @@ RSpec.describe Traject::SolrPool::SolrJsonWriter, :solr_stub do
       stub = stub_solr_update('http://solr.test:8983/solr/core/update/json')
              .with { |req| JSON.parse(req.body) == { 'delete' => 'abc' } }
       writer('solr_writer.thread_pool' => 0).delete('abc')
+      expect(stub).to have_been_requested
+    end
+
+    it 'applies solr_update_args to the delete post query string' do
+      stub = stub_solr_update('http://solr.test:8983/solr/core/update/json?commitWithin=1000')
+      w = writer('solr_writer.solr_update_args' => { 'commitWithin' => 1000 },
+                 'solr_writer.thread_pool' => 0)
+      w.delete('x')
       expect(stub).to have_been_requested
     end
 

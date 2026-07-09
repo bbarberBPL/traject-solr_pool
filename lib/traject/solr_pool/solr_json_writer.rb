@@ -83,7 +83,7 @@ module Traject
 
         json_package = JSON.generate(batch.map(&:output_hash))
         begin
-          resp = connection.post(request_path, body: json_package)
+          resp = connection.post(request_path_for(@solr_update_args), body: json_package)
         rescue StandardError => e
           exception = e
         end
@@ -96,7 +96,7 @@ module Traject
 
       def send_single(context)
         json_package = JSON.generate([context.output_hash])
-        resp = connection.post(request_path, body: json_package)
+        resp = connection.post(request_path_for(@solr_update_args), body: json_package)
         unless resp.status == 200
           raise BadHttpResponse.new("Unexpected HTTP response status #{resp.code} from POST", resp)
         end
@@ -132,7 +132,7 @@ module Traject
 
       def delete(id)
         json_package = JSON.generate(delete: id)
-        resp = connection.post(request_path, body: json_package)
+        resp = connection.post(request_path_for(@solr_update_args), body: json_package)
         raise "Could not delete #{id.inspect}, http response #{resp.code}: #{resp}" unless resp.status == 200
       end
 

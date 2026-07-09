@@ -89,7 +89,7 @@ new namespaced setting.
 | `solr_writer.max_skipped` | `0` | Skip tolerance before `MaxSkippedRecordsExceeded` (negative disables the cap) |
 | `solr_writer.skippable_exceptions` | http.rb-native list (see below) | Exceptions treated as skippable during per-record retry |
 | `solr_writer.commit_on_close` | `false` | Send a commit when the writer closes (legacy `solrj_writer.commit_on_close` also honoured) |
-| `solr_writer.solr_update_args` | none | Update query params; exposed via `solr_update_url_with_query` |
+| `solr_writer.solr_update_args` | none | Query params (e.g. `{ 'commitWithin' => 1000 }`) applied to every update and delete request |
 | `solr_writer.commit_solr_update_args` | `{ 'commit' => 'true' }` | Query params for the commit request |
 | `solr_writer.basic_auth_user` | embedded URI user | Basic-auth user (overrides credentials embedded in the URL) |
 | `solr_writer.basic_auth_password` | embedded URI password | Basic-auth password (overrides credentials embedded in the URL) |
