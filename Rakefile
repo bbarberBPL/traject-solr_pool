@@ -2,11 +2,12 @@
 
 require 'bundler/gem_tasks'
 require 'rspec/core/rake_task'
+require 'rubocop/rake_task'
+require 'bundler/audit/task'
 
 RSpec::Core::RakeTask.new(:spec)
-
-require 'rubocop/rake_task'
-
 RuboCop::RakeTask.new
+Bundler::Audit::Task.new
 
-task default: %i[spec rubocop]
+task ci: %i[bundle:audit:check rubocop spec]
+task default: :ci
