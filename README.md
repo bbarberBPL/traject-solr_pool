@@ -34,25 +34,18 @@ Then install:
 bundle install
 ```
 
-## Temporary edge-traject dependency
+## Requirements
 
-The last released version of `traject` caps its HTTP dependency at `http < 6`,
-which collides with `http_connection_pool`'s `http ~> 6.0`. Edge `traject`
-relaxes that cap to `http >= 3.0, < 7`, but no release ships it yet.
+- Ruby >= 3.3
+- `traject` >= 3.9 (3.9.0 relaxed its HTTP cap to `http >= 3.0, < 7`, so it
+  co-installs with `http_connection_pool`'s `http ~> 6.0` directly from
+  RubyGems — no edge checkout needed)
+- `http_connection_pool` >= 0.1.1
 
-Until such a release exists, this project's Gemfile pins `traject` to a sibling
-edge checkout via a `path:` override:
-
-```ruby
-gem 'traject', path: '../traject-edge'
-```
-
-Check out edge `traject` into a sibling directory next to this repository so
-the relative path resolves.
-
-Once a `traject` release ships the relaxed cap, remove the override: delete the
-`gem 'traject', path: '...'` line from the Gemfile. The gemspec already declares
-the released version constraint, so no gemspec change is needed.
+Earlier releases of `traject` capped their HTTP dependency at `http < 6`, which
+collided with `http_connection_pool`'s `http ~> 6.0`; the Gemfile once carried a
+`path:` override to a local edge checkout to work around that. It is no longer
+required and the override is commented out.
 
 ## Usage
 

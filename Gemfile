@@ -5,7 +5,11 @@ source 'https://rubygems.org'
 # Specify your gem's dependencies in traject-solr_pool.gemspec
 gemspec
 
-gem 'traject', path: '../traject-edge'
+# Edge-traject override, no longer needed: released traject 3.9.0 relaxes its
+# HTTP cap to `http >= 3.0, < 7`, so it co-installs with http_connection_pool's
+# `http ~> 6.0` straight from RubyGems. Kept commented as a hook in case a local
+# traject checkout is needed again (e.g. to test an unreleased fix).
+# gem 'traject', path: '../traject-edge'
 
 group :development, :test do
   gem 'bundler-audit', '~> 0.9', require: false

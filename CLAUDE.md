@@ -27,23 +27,22 @@ the same pooling seam later, but do not build it until asked.
 
 ---
 
-## Temporary Dependency Situation (READ THIS FIRST)
+## Dependency Situation (resolved)
 
-`http_connection_pool` requires `http ~> 6.0`. The **last released** traject
-gem caps its dependency at `http < 6`, so the two cannot co-install from
-RubyGems today.
+`http_connection_pool` requires `http ~> 6.0`. Earlier released traject gems
+capped their dependency at `http < 6`, so the two could not co-install from
+RubyGems, and the project bridged the gap with a Gemfile `path:` override to a
+local edge checkout.
 
-- **traject's `main`/edge already relaxes this** to `http >= 3.0, < 7`.
-- Until traject ships a release with that relaxed cap, this project depends on
-  a **locally-cloned edge checkout of traject via a Gemfile `path:` override**.
-- This is a **temporary bridge**, not the intended shipping configuration. When
-  a traject release lifts the `http < 6` cap, remove the `path:` override and
-  depend on the released version through the gemspec only.
+- **traject 3.9.0 (released 2026-07-21) relaxed the cap** to `http >= 3.0,
+  < 7`, so traject now co-installs with `http_connection_pool` straight from
+  RubyGems. The gemspec pins `traject '~> 3.9'`.
+- The `path:` override is **no longer needed**. It is commented out in the
+  `Gemfile` (kept as a hook in case a local traject checkout is ever needed
+  again, e.g. to test an unreleased fix) — do not re-enable it for normal work.
 - Do **not** hardcode absolute local filesystem paths anywhere in committed
-  source, specs, or docs. The `path:` override lives in the `Gemfile` and refers
-  to a sibling checkout by relative path; keep it there.
-- The gemspec's `traject` constraint carries a `NOTE` to switch it to the real
-  released version once available — honour that note.
+  source, specs, or docs. Any local override lives in the `Gemfile` and refers
+  to a sibling checkout by relative path.
 
 ---
 
@@ -201,15 +200,26 @@ matching the file tree.
 
 ## Rake Tasks
 
-| Task            | What it does                              |
-| --------------- | ----------------------------------------- |
-| `rake` (default) | RSpec, then RuboCop                       |
-| `rake spec`     | RSpec only                                |
-| `rake rubocop`  | RuboCop only                              |
+| Task                      | What it does                                          |
+| ------------------------- | ----------------------------------------------------- |
+| `rake` / `rake ci`        | `bundle:audit:check` (offline) → RuboCop → RSpec      |
+| `rake audit`              | `bundle:audit:update` (network) → `bundle:audit:check`|
+| `rake spec`               | RSpec only                                            |
+| `rake rubocop`            | RuboCop only                                          |
+| `rake bundle:audit:check` | Offline CVE scan                                      |
 
-`bundler-audit` is available as a dev dependency; wire an offline CVE check into
-CI before release. Both `rake spec` and `rake rubocop` must be clean before any
-commit.
+`rake ci` must run clean before any commit. Never bypass bundler-audit.
+
+## Continuous integration
+
+`.github/workflows/ci.yml` runs on push to `main` and on PRs: a `test` matrix
+over MRI Ruby `3.3` and `3.4` running `rake ci` (offline audit + RuboCop +
+RSpec), plus a separate `security` job running `rake audit` (network advisory-DB
+refresh + check). MRI only — mirrors `http_connection_pool`'s CI. `Gemfile.lock`
+is gitignored, so CI resolves dependencies fresh each run.
+
+Automated publishing (`release.yml` / OIDC Trusted Publishing) is planned but
+not yet wired; the initial release is published manually by the maintainer.
 
 ---
 
@@ -221,6 +231,7 @@ commit.
    method surface; do not fork a new configuration language.
 3. **Thread-safe, Sidekiq >= 8, Zeitwerk, and Rails compatible** — first-class
    requirements verified by specs, matching `http_connection_pool`'s guarantees.
-4. **Edge-traject `path:` override is temporary** — remove it and pin the real
-   released traject the moment a release lifts the `http < 6` cap.
+4. **Released traject only** — pin `traject '~> 3.9'` (3.9.0 lifted the
+   `http < 6` cap). The old edge `path:` override is commented out in the
+   Gemfile; do not re-enable it except to test an unreleased traject fix.
 5. **Reader is future scope** — leave a clean seam, build only when asked.

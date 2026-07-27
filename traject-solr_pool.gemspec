@@ -34,10 +34,9 @@ Gem::Specification.new do |spec|
   spec.executables = spec.files.grep(%r{\Aexe/}) { |f| File.basename(f) }
   spec.require_paths = ['lib']
 
-  spec.add_dependency 'http_connection_pool', '~> 0.1'
-  # NOTE: temporary floor. The last RELEASED traject caps http < 6, colliding
-  # with http_connection_pool's http ~> 6.0. We depend on edge traject via a
-  # Gemfile `path:` override until a release lifts that cap; then pin the real
-  # released version here and remove the Gemfile override.
-  spec.add_dependency 'traject', '>= 3.8.4', '~> 3.8'
+  spec.add_dependency 'http_connection_pool', '>= 0.1.1', '~> 0.1'
+  # traject 3.9.0 relaxed its HTTP cap to `http >= 3.0, < 7`, so it co-installs
+  # with http_connection_pool's `http ~> 6.0` directly from RubyGems. No edge
+  # override needed.
+  spec.add_dependency 'traject', '~> 3.9'
 end

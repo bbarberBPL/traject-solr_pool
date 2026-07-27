@@ -26,8 +26,8 @@ Adapt the file paths/tags to this project when reused:
   can invalidate, then stress-loops them for flakiness. Directly applicable to
   our `:thread_safety` and `:background_jobs` integration specs.
 - `dependency-security-auditor` — audits the dependency tree against primary
-  sources (RubyGems API, GitHub advisory DB). Applicable to our gemspec/Gemfile,
-  especially while we carry the temporary edge-traject `path:` override.
+  sources (RubyGems API, GitHub advisory DB). Applicable to our gemspec/Gemfile
+  whenever a dependency floor changes.
 - `memory-leak-auditor` — hunts unbounded retention with `ObjectSpace`/`GC`
   probes. Applicable to verifying the writer/pool do not accumulate objects
   per-batch or per-job.
