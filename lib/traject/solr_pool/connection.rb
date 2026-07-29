@@ -18,6 +18,17 @@ module Traject
         end
       end
 
+      # Transport-level failures that mean the server is unreachable. A returned
+      # HTTP response of ANY status (2xx/4xx/5xx) is NOT in this set — it proves
+      # the server answered. Kept independent of the writer's skippable list.
+      TRANSPORT_ERRORS = [
+        HTTP::TimeoutError,
+        HttpConnectionPool::TimeoutError,
+        HTTP::ConnectionError,
+        SocketError,
+        Errno::ECONNREFUSED
+      ].freeze
+
       attr_reader :origin
 
       def initialize(origin:, pool_size:, pool_timeout: nil, **opts)
@@ -43,6 +54,28 @@ module Traject
             client.get(path, params: params)
           end
         end
+      end
+
+      def head(path, timeout: nil)
+        @adapter.with_connection do |conn|
+          client = timeout ? conn.timeout(timeout) : conn
+          client.head(path)
+        end
+      end
+
+      # Raw health probe: returns the HTTP::Response (any status) so callers can
+      # inspect it. Raises on transport failure. HEAD has no body to drain, so
+      # it leaves the pooled persistent socket clean for reuse.
+      def ping(path, timeout: nil)
+        head(path, timeout: timeout)
+      end
+
+      # Liveness predicate. Any HTTP response means reachable -> true. Only a
+      # transport failure means down -> false. Never raises.
+      def ready?(path, timeout: nil)
+        !ping(path, timeout: timeout).nil?
+      rescue *TRANSPORT_ERRORS
+        false
       end
 
       def release
