@@ -140,6 +140,14 @@ module Traject
         delete(query: '*:*')
       end
 
+      def ping(timeout: nil)
+        connection.ping(@ping_path, timeout: timeout || @ping_timeout)
+      end
+
+      def ready?(timeout: nil)
+        connection.ready?(@ping_path, timeout: timeout || @ping_timeout)
+      end
+
       private
 
       def shutdown_thread_pool
@@ -207,6 +215,7 @@ module Traject
         configure_batching
         configure_pools
         configure_commit
+        configure_ping
       end
 
       def configure_skipped
@@ -238,6 +247,21 @@ module Traject
         @solr_update_args = @settings['solr_writer.solr_update_args']
         @commit_solr_update_args = @settings['solr_writer.commit_solr_update_args']
         @commit_timeout = (@settings['solr_writer.commit_timeout'] || 600).to_i
+      end
+
+      def configure_ping
+        @ping_path    = @settings['solr_writer.ping_path'] || derive_ping_path
+        @ping_timeout = (@settings['solr_writer.ping_timeout'] || 5).to_i
+      end
+
+      # Derive <core>/admin/ping from the update URL path by stripping a
+      # trailing /update or /update/json segment. Falls back to appending
+      # /admin/ping to the whole path when no update segment is present.
+      def derive_ping_path
+        path = URI.parse(@solr_update_url).path
+        base = path.sub(%r{/update(/json)?/?\z}, '')
+        base = path if base.empty?
+        "#{base}/admin/ping"
       end
 
       # Splits origin (scheme://host:port) from request path; auth goes to

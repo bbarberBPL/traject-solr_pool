@@ -21,6 +21,81 @@ URL and uses it as the connection pool's `base_url`. The remainder of the URL
 becomes the relative request path sent on each call, so requests resolve
 against the persistent origin rather than re-encoding the absolute URL.
 
+## Health check
+
+Check whether Solr is reachable before indexing. The writer delegates to the
+pooled connection and issues a **HEAD** request (no body to drain, so the
+persistent socket stays clean for reuse):
+
+```ruby
+writer = Traject::SolrPool::SolrJsonWriter.new(settings)
+
+# Boolean liveness guard.
+abort 'Solr is down' unless writer.ready?
+
+# Raw response when you need the status code or headers.
+resp = writer.ping
+puts resp.status
+```
+
+### What `ready?` means
+
+- `ready?` returns `true` for **any** HTTP status the server returns —
+  including `405 Method Not Allowed` (some Solr `PingRequestHandler` versions
+  reject HEAD) and `404`. Any HTTP response proves the server process answered
+  and is reachable.
+- `ready?` returns `false` **only** on a transport failure: connection refused,
+  read/connect timeout, DNS failure, or socket error. It never raises.
+- To distinguish "reachable but returned 405/404/5xx" from "reachable and
+  healthy", use `ping` and inspect `response.status` yourself — `ready?`
+  deliberately does not make that distinction.
+
+The health-check endpoint defaults to the core ping handler
+(`<core>/admin/ping`), derived from the Solr URL. Override it with
+`solr_writer.ping_path`. The request timeout defaults to 5 seconds
+(`solr_writer.ping_timeout`) so a hung server fails fast.
+
+### Reusing the pool from another class
+
+The same pooled connection is reusable outside the writer — e.g. from a future
+reader or a health-check daemon. Prefer handing out the writer's connection:
+
+```ruby
+conn = writer.connection
+conn.ready?('/solr/core/admin/ping')
+conn.get('/solr/core/select', params: { q: '*:*' })
+```
+
+Or resolve the pool straight from the registry. Pools are keyed by
+`(origin, options)`, so the SAME origin and options return the SAME pool the
+writer uses; different options (e.g. different credentials) get a separate pool
+by design:
+
+```ruby
+pool = HttpConnectionPool::Registry.instance.pool_for(
+  'http://localhost:8983',
+  size: 5,
+  headers: {},                    # the writer always emits an empty headers hash
+  auth: 'Basic dXNlcjpwYXNz'      # plus auth when credentials are set
+)
+pool.with { |conn| conn.head('/solr/my_core/admin/ping') }
+```
+
+The registry keys pools by a SHA-256 digest of the normalized options hash, so
+the `**options` you pass must match the writer's set EXACTLY — same keys,
+including the empty `headers: {}` — or you get a different pool by design. The
+writer builds its options from `Connection#to_pool_opts`, which always emits
+`headers: {}`, adds `auth:` when credentials are set, and adds `timeout:` when
+`solr_writer.http_timeout` is set; include the same `timeout:` here if the
+writer sets one. The `size:` and `timeout:` keyword arguments to `pool_for`
+size the pool and set its checkout timeout — they are NOT part of the key. Only
+the `**options` (here `headers:` and `auth:`) determine which pool you resolve.
+Because matching this by hand is fragile, prefer `writer.connection` above.
+
+`HttpConnectionPool::Registry.instance.stats` returns an `Array<Hash>` (one
+entry per pool) and only proves a pool object exists locally — it does NOT
+prove Solr is reachable. Use `ready?` for liveness.
+
 ## Settings
 
 The writer reuses the stock `solr.*` / `solr_writer.*` vocabulary. Only
@@ -42,6 +117,8 @@ The writer reuses the stock `solr.*` / `solr_writer.*` vocabulary. Only
 | `solr_writer.basic_auth_password` | embedded URI password | Basic-auth password; overrides any credentials embedded in the URL |
 | `solr_writer.http_timeout` | none | Per-request HTTP timeout, passed through to the pooled connection |
 | `solr_writer.pool_timeout` | pool default | Maximum time to wait for a connection checkout from the pool |
+| `solr_writer.ping_path` | `<core>/admin/ping` derived from the Solr URL | Relative request path for `ready?`/`ping` health checks |
+| `solr_writer.ping_timeout` | `5` | Per-request read timeout (seconds) for the health check, so a hung server fails fast |
 | `solr_pool.pool_size` | `solr_writer.thread_pool` + 1 | Pool capacity, sized so no writer thread starves on checkout while the caller thread can still flush and commit |
 
 ### Credential handling

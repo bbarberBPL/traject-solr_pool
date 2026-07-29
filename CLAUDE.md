@@ -207,6 +207,10 @@ matching the file tree.
 | `rake spec`               | RSpec only                                            |
 | `rake rubocop`            | RuboCop only                                          |
 | `rake bundle:audit:check` | Offline CVE scan                                      |
+| `rake build:checksum`     | Build, then write SHA-256 + SHA-512 to `checksums/` (gitignored) |
+| `rake bump:patch`         | Bump patch version in version.rb, print release commands |
+| `rake bump:minor`         | Bump minor version in version.rb, print release commands |
+| `rake bump:major`         | Bump major version in version.rb, print release commands |
 
 `rake ci` must run clean before any commit. Never bypass bundler-audit.
 
@@ -218,8 +222,13 @@ RSpec), plus a separate `security` job running `rake audit` (network advisory-DB
 refresh + check). MRI only — mirrors `http_connection_pool`'s CI. `Gemfile.lock`
 is gitignored, so CI resolves dependencies fresh each run.
 
-Automated publishing (`release.yml` / OIDC Trusted Publishing) is planned but
-not yet wired; the initial release is published manually by the maintainer.
+`.github/workflows/release.yml` triggers on a `v*.*.*` tag: it verifies the tag
+matches `Traject::SolrPool::VERSION`, re-runs the specs, publishes via
+`rubygems/release-gem` (OIDC Trusted Publishing — no stored API key), then
+checksums the published gem and creates a GitHub Release with the gem and
+checksum files attached. `gem push` / `git push` / pushing a tag remain
+user-only actions; `rake bump:*` only edits `version.rb` and prints the next
+commands.
 
 ---
 
