@@ -172,4 +172,60 @@ RSpec.describe Traject::SolrPool::SolrJsonWriter, :solr_stub do
       expect { writer('solr_writer.thread_pool' => 0).delete('abc') }.to raise_error(RuntimeError)
     end
   end
+
+  describe 'health check' do
+    it 'derives the ping path as the core admin/ping from solr.url' do
+      stub = stub_request(:head, 'http://solr.test:8983/solr/core/admin/ping').to_return(status: 200)
+      writer('solr_writer.thread_pool' => 0).ready?
+      expect(stub).to have_been_requested
+    end
+
+    it 'derives the ping path from solr.update_url' do
+      stub = stub_request(:head, 'http://solr.test:8983/solr/core/admin/ping').to_return(status: 200)
+      described_class.new('solr.update_url' => 'http://solr.test:8983/solr/core/update').ready?
+      expect(stub).to have_been_requested
+    end
+
+    it 'honours an explicit solr_writer.ping_path' do
+      stub = stub_request(:head, 'http://solr.test:8983/health').to_return(status: 200)
+      writer('solr_writer.thread_pool' => 0, 'solr_writer.ping_path' => '/health').ready?
+      expect(stub).to have_been_requested
+    end
+
+    it 'ready? is true when Solr answers and false when unreachable' do
+      stub_request(:head, 'http://solr.test:8983/solr/core/admin/ping')
+        .to_return(status: 200).then.to_raise(HTTP::ConnectionError)
+      w = writer('solr_writer.thread_pool' => 0)
+      expect([w.ready?, w.ready?]).to eq([true, false])
+    end
+
+    it 'ping returns the raw response for status inspection' do
+      stub_request(:head, 'http://solr.test:8983/solr/core/admin/ping').to_return(status: 503)
+      expect(writer('solr_writer.thread_pool' => 0).ping.status).to eq(503)
+    end
+
+    it 'defaults the ping timeout to 5 seconds' do
+      stub_request(:head, 'http://solr.test:8983/solr/core/admin/ping').to_return(status: 200)
+      w = writer('solr_writer.thread_pool' => 0)
+      allow(w.connection).to receive(:ready?).and_call_original
+      w.ready?
+      expect(w.connection).to have_received(:ready?).with(anything, timeout: 5)
+    end
+
+    it 'passes an explicit ping timeout through' do
+      stub_request(:head, 'http://solr.test:8983/solr/core/admin/ping').to_return(status: 200)
+      w = writer('solr_writer.thread_pool' => 0, 'solr_writer.ping_timeout' => 2)
+      allow(w.connection).to receive(:ping).and_call_original
+      w.ping
+      expect(w.connection).to have_received(:ping).with(anything, timeout: 2)
+    end
+
+    it 'sends the ping with the auth header and a credential-free path' do
+      stub = stub_request(:head, 'http://solr.test:8983/solr/core/admin/ping')
+             .with(headers: { 'Authorization' => 'Basic dXNlcjpzZWNyZXQ=' }).to_return(status: 200)
+      described_class.new('solr.url' => 'http://user:secret@solr.test:8983/solr/core',
+                          'solr_writer.thread_pool' => 0).ready?
+      expect(stub).to have_been_requested
+    end
+  end
 end
