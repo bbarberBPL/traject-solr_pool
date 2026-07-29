@@ -43,4 +43,50 @@ RSpec.describe Traject::SolrPool::Connection, :solr_stub do
     expect(conn.to_s).to eq('#<Traject::SolrPool::Connection origin=http://solr.test:8983 ' \
                             'pool_size=1 options=[headers, auth]>')
   end
+
+  describe 'health check' do
+    it 'issues a HEAD to the given path and returns the response' do
+      stub = stub_request(:head, 'http://solr.test:8983/solr/core/admin/ping').to_return(status: 200)
+      aggregate_failures do
+        expect(connection.head('/solr/core/admin/ping').status).to eq(200)
+        expect(stub).to have_been_requested
+      end
+    end
+
+    it 'ping returns the raw response object with its status' do
+      stub_request(:head, 'http://solr.test:8983/ping').to_return(status: 503)
+      expect(connection.ping('/ping').status).to eq(503)
+    end
+
+    it 'ping propagates a transport error' do
+      stub_request(:head, 'http://solr.test:8983/ping').to_raise(HTTP::ConnectionError)
+      expect { connection.ping('/ping') }.to raise_error(HTTP::ConnectionError)
+    end
+
+    it 'ready? is true for a 200' do
+      stub_request(:head, 'http://solr.test:8983/ping').to_return(status: 200)
+      expect(connection.ready?('/ping')).to be(true)
+    end
+
+    it 'ready? is true for a 405 because the server is reachable' do
+      stub = stub_request(:head, 'http://solr.test:8983/ping').to_return(status: 405)
+      aggregate_failures do
+        expect(connection.ready?('/ping')).to be(true)
+        expect(stub).to have_been_requested
+      end
+    end
+
+    it 'ready? is true for a 404 because the server is reachable' do
+      stub = stub_request(:head, 'http://solr.test:8983/ping').to_return(status: 404)
+      aggregate_failures do
+        expect(connection.ready?('/ping')).to be(true)
+        expect(stub).to have_been_requested
+      end
+    end
+
+    it 'ready? is false on a transport error and does not raise' do
+      stub_request(:head, 'http://solr.test:8983/ping').to_raise(HTTP::ConnectionError)
+      expect(connection.ready?('/ping')).to be(false)
+    end
+  end
 end

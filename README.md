@@ -68,6 +68,21 @@ auth credentials are sent as an `Authorization` header, never baked into the
 origin, so distinct credentials resolve to distinct pools and never share
 connections.
 
+### Health check
+
+```ruby
+writer = Traject::SolrPool::SolrJsonWriter.new(settings)
+abort 'Solr unreachable' unless writer.ready?
+```
+
+`ready?` returns `true` for any HTTP response (the server answered — including
+`405`/`404`), and `false` only on a transport failure (refused/timeout/DNS). It
+uses a HEAD request so the pooled persistent connection stays clean for reuse.
+Use `writer.ping` for the raw response. Configure the endpoint with
+`solr_writer.ping_path` (default `<core>/admin/ping`) and the timeout with
+`solr_writer.ping_timeout` (default 5s). See [docs/usage.md](docs/usage.md) for
+the full reference, including reusing the pool from another class.
+
 ## Settings
 
 The writer honours the stock `solr.*` / `solr_writer.*` vocabulary, plus one
@@ -159,6 +174,22 @@ also available.
 
 Bug reports and pull requests are welcome. Releasing and pushing are maintainer
 responsibilities — contributors should not push tags or publish gems.
+
+## Releasing
+
+Releases are published to RubyGems via OIDC Trusted Publishing on a version
+tag — no API key is stored. The maintainer:
+
+1. Bumps the version: `rake bump:patch` (or `:minor` / `:major`). This edits
+   `lib/traject/solr_pool/version.rb` and prints the next commands.
+2. Commits and tags: `git commit -am 'Release vX.Y.Z' && git tag vX.Y.Z`.
+3. Pushes the tag: `git push && git push --tags`.
+
+Pushing the `v*.*.*` tag triggers `.github/workflows/release.yml`, which
+verifies the tag matches `Traject::SolrPool::VERSION`, re-runs the specs,
+publishes the gem, and creates a GitHub Release with the gem and its SHA-256 /
+SHA-512 checksums attached. `gem push` and `git push` are maintainer actions;
+CI never pushes on its own.
 
 ## License
 

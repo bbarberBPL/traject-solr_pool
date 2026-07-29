@@ -19,8 +19,12 @@ context.
 ## Reusable from the sibling `http_connection_pool` gem
 
 This gem shares that gem's thread-safety and security constraints, so several of
-its agents transfer directly (see `../../../http_connection_pool/docs/agents/`).
-Adapt the file paths/tags to this project when reused:
+its agents transfer directly. The sibling `http_connection_pool` gem defines
+reusable review agents. Since it is a runtime dependency, read them on GitHub at
+<https://github.com/bbarberBPL/http_connection_pool/tree/main/docs/agents> or
+locally via `bundle show http_connection_pool` (the agents live under
+`docs/agents/` in the install path). Adapt the file paths/tags to this project
+when reused:
 
 - `concurrency-spec-reviewer` — reviews concurrency specs for assertions a race
   can invalidate, then stress-loops them for flakiness. Directly applicable to

@@ -17,8 +17,15 @@ skill so future sessions follow the same steps instead of rediscovering them.
 
 ## Reusable from the sibling `http_connection_pool` gem
 
-See `../../../http_connection_pool/docs/skills/`. These transfer with minor path
-changes:
+`http_connection_pool` is a runtime dependency, so its skill docs ship with it.
+Read them either on GitHub or in the installed gem:
+
+- GitHub: <https://github.com/bbarberBPL/http_connection_pool/tree/main/docs/skills>
+- Locally: `bundle show http_connection_pool` (or `gem which
+  http_connection_pool`) prints the install path; the skills live under
+  `docs/skills/` there.
+
+These transfer with minor path changes:
 
 - `dependency-audit` — security sweep that verifies every advisory/version claim
   against primary sources before recommending a change. Reuse verbatim whenever
