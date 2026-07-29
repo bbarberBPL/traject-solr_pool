@@ -180,15 +180,30 @@ published gem is the source of truth (`.gem` builds are not byte-stable across
 zlib/RubyGems versions). This matches the sibling gem's decision and the
 project memory on gem checksums.
 
+### `bump:*` Rake tasks
+
+Add version-bump tasks mirroring the sibling `http_connection_pool` gem so the
+maintainer does not hand-edit `version.rb`:
+
+- **`rake bump:patch`**, **`rake bump:minor`**, **`rake bump:major`** — parse
+  the current `Traject::SolrPool::VERSION` from `lib/traject/solr_pool/version.rb`,
+  compute the next version (semver: patch/minor/major increments, resetting
+  lower segments), and rewrite the `VERSION = '…'` line in place.
+- Each task **prints** (does not run) the follow-up release commands:
+  `git commit -am 'Release vX.Y.Z'`, `git tag vX.Y.Z`, `git push && git push
+  --tags`. Printing keeps `git push` / tagging a **user action** — the task
+  never pushes or tags on its own.
+- Implemented in Ruby (read/regex-replace the version file), not a shell out,
+  for portability. The tasks live under a `namespace :bump` in the `Rakefile`.
+
 ### Non-goals
 
 - No committed checksums, no "byte-compare a fresh build against a committed
   checksum" gate (known to fail on every release for non-reproducible `.gem`
   output).
-- The release remains **user-initiated**: a human runs `rake bump:*` (if/when
-  added), commits, and pushes the tag. The assistant never runs `gem push` or
-  `git push`. (Version-bump Rake tasks are out of scope for this change; the
-  maintainer edits `version.rb` directly for now.)
+- The release remains **user-initiated**: a human runs `rake bump:*`, commits,
+  and pushes the tag. The assistant never runs `gem push` or `git push` — the
+  `bump:*` tasks only edit `version.rb` and print the next commands.
 
 ## Part 3 — Documentation pass
 
@@ -198,8 +213,21 @@ project memory on gem checksums.
   - Writer delegation: `writer.ready?` in a guard, `writer.ping` for the raw
     response.
   - Standalone `Connection`: `conn.ready?('/solr/core/admin/ping')`.
-  - Explanation of the reachability semantics (any response = up; transport
-    error = down) and the HEAD-safety rationale (one sentence + link).
+  - **Explicit documentation of the reachability semantics**, spelled out (not
+    just summarized) so callers know what to rely on:
+    - `ready?` returns `true` for **any** HTTP status the server returns —
+      including `405 Method Not Allowed` (some Solr `PingRequestHandler`
+      versions reject HEAD) and `404` — because any HTTP response proves the
+      server process answered and is reachable.
+    - `ready?` returns `false` **only** on a transport failure: connection
+      refused, read/connect timeout, DNS resolution failure, or socket error
+      (the `TRANSPORT_ERRORS` set). It never raises.
+    - Callers who need to distinguish "reachable but returned 405/404/5xx" from
+      "reachable and healthy" must use `ping` and inspect `response.status`
+      themselves — `ready?` deliberately does not make that distinction.
+  - The HEAD-safety rationale: HEAD has no body to drain, so it keeps the
+    pooled persistent socket clean for reuse (one sentence + link to the http.rb
+    persistent-connections rule).
 - **Registry pool reuse** section: how to obtain the writer's pool from another
   class — `writer.connection` (preferred) and
   `HttpConnectionPool::Registry.instance.pool_for(origin, **matching_options)`
@@ -230,8 +258,10 @@ only resolve on a machine with both repos checked out side by side. Replace with
   flow and the manual `rake bump`/commit/tag step (maintainer action).
 - **CLAUDE.md:** update the "Continuous integration" section to describe
   `release.yml` (it currently says automated publishing is "planned but not yet
-  wired"); add the `build:checksum` task to the Rake Tasks table; add a
-  "Publishing and release" note that `gem push` / `git push` remain user-only.
+  wired"); add the `build:checksum` and `bump:patch`/`bump:minor`/`bump:major`
+  tasks to the Rake Tasks table; add a "Publishing and release" note that
+  `gem push` / `git push` (and pushing a tag) remain user-only, and that
+  `bump:*` only edits `version.rb` and prints the next commands.
 
 ## Testing strategy (TDD)
 
@@ -272,6 +302,13 @@ Not unit-testable in-repo. Verify by: `rake build:checksum` produces valid
 `shasum -c`-format files for the built gem (add a focused spec or a manual
 check), and the workflow YAML is valid. The tag-verify shell step is copied
 from the proven sibling workflow with only the gem name/constant changed.
+
+## Execution constraints
+
+- **All implementer and reviewer subagents MUST run on Opus (Opus 4.8).** This
+  applies to every task in the implementation plan — no Sonnet/Haiku implementers
+  or reviewers. Carry this constraint into the plan so each task's agent
+  dispatch specifies the Opus model.
 
 ## Definition of done
 
