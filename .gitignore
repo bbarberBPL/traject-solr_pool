@@ -5,6 +5,7 @@
 /doc/
 /pkg/
 *.gem
+/checksums/
 /spec/reports/
 /tmp/
 
