@@ -75,10 +75,22 @@ by design:
 pool = HttpConnectionPool::Registry.instance.pool_for(
   'http://localhost:8983',
   size: 5,
-  auth: 'Basic dXNlcjpwYXNz'  # must match the writer's options to share its pool
+  headers: {},                    # the writer always emits an empty headers hash
+  auth: 'Basic dXNlcjpwYXNz'      # plus auth when credentials are set
 )
 pool.with { |conn| conn.head('/solr/my_core/admin/ping') }
 ```
+
+The registry keys pools by a SHA-256 digest of the normalized options hash, so
+the `**options` you pass must match the writer's set EXACTLY — same keys,
+including the empty `headers: {}` — or you get a different pool by design. The
+writer builds its options from `Connection#to_pool_opts`, which always emits
+`headers: {}`, adds `auth:` when credentials are set, and adds `timeout:` when
+`solr_writer.http_timeout` is set; include the same `timeout:` here if the
+writer sets one. The `size:` and `timeout:` keyword arguments to `pool_for`
+size the pool and set its checkout timeout — they are NOT part of the key. Only
+the `**options` (here `headers:` and `auth:`) determine which pool you resolve.
+Because matching this by hand is fragile, prefer `writer.connection` above.
 
 `HttpConnectionPool::Registry.instance.stats` returns an `Array<Hash>` (one
 entry per pool) and only proves a pool object exists locally — it does NOT
